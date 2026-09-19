@@ -171,15 +171,27 @@ if user_prompt := st.chat_input("Ask for a trip plan (e.g., 'Plan a 3-day budget
         with st.chat_message("assistant"):
             with st.spinner("Compiling live data, itinerary, and travel specifics..."):
                 response = agent_executor.invoke({"messages": agent_inputs})
-                final_answer = response["messages"][-1].content
+                raw_content = response["messages"][-1].content
+
+                # Format content to plain string if returned as a list of dicts
+                if isinstance(raw_content, list):
+                    text_parts = [
+                        item.get("text", "") if isinstance(item, dict) else str(item)
+                        for item in raw_content
+                    ]
+                    final_answer = "\n".join(text_parts).strip()
+                else:
+                    final_answer = str(raw_content)
+
                 st.markdown(final_answer)
 
         st.session_state.messages.append({"role": "assistant", "content": final_answer})
 
-        # Save to SQLite database
-        dest_summary = user_prompt[:30].replace("'", "")
-        save_search(dest_summary, final_answer)
+        # Save clean string to SQLite database
+        dest_summary = str(user_prompt[:30]).replace("'", "")
+        save_search(dest_summary, str(final_answer))
         st.rerun()
+            
 
     except Exception as err:
         st.error(f"Error processing your request: {err}")
